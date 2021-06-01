@@ -14,7 +14,7 @@ from sensor_msgs.msg import JointState
 from math import pi,atan2,degrees,radians
 from tf.transformations import quaternion_from_euler
 from cv_bridge import CvBridge, CvBridgeError
-
+print "OpenCV version:", cv2.__version__
 print '============ CoppeliaSim setup'
 #sim.simxFinish(-1) 
 clientID=sim.simxStart('127.0.0.1',20005,True,True,5000,5)
@@ -146,15 +146,16 @@ def getTOrientation(cnt):
   dx=cX-x
   angle=atan2(dy,dx)-pi/2
   return angle
+
 def getIOrientation(cnt):
   output=cv2.fitLine(cnt,cv2.DIST_L2,0, 0.01, 0.01)
   dx=output[0]
   dy=output[1]
   angle=atan2(dy,dx)+np.pi/2
   return angle
+
 def simt(dt):
     t1=sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
-    #secs=sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]-t1
     while rospy.Duration(secs=(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]-t1)) < dt:
         pass
     
@@ -215,15 +216,14 @@ def main():
 
         imgray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         ret, thresh = cv2.threshold(imgray, 127, 255,cv2.THRESH_BINARY_INV)
-        contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)     
+        _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)     
         objectarea=cv2.contourArea(contours[0])
         #(x,y)=get_blob_relative_position(cv_image, keypoints[0])
         (x,y)=get_relative_position(cv_image, contours[0])
         x,y=conversion(x,y)
         cpoint=cv2.minAreaRect(contours[0])[0]
         color=cv_image[int(cpoint[1]),int(cpoint[0])]
-        print ('Task Start, Starting time is: ')
-        print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
+        print "ask Start, Starting time is: ",sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
         pickuppos=[0,pi/2,0,-0.6-y,-x,0.07]
         plan=trajgen(pickuppos)
         execute_traj(plan)
@@ -251,8 +251,8 @@ def main():
         execute_traj(plan)
         TASK=0
         suc_pad(0)
-        print ('Task Complete, simulation time is: ')
-        print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
+        print "Task Complete, simulation time is: ",sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
+        #print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
 
 if __name__ == '__main__':
     try:

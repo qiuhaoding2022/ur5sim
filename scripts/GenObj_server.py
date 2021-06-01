@@ -2,11 +2,10 @@
 
 from __future__ import print_function
 
-from quickstartdemo.srv import GenObj
+from ur5sim.srv import GenObj
 import rospy
 import sim
 print("============ CoppeliaSim setup")
-#sim.simxFinish(-1)
 clientID=sim.simxStart('127.0.0.1',20010,True,True,5000,5)
 if clientID!=-1:
     print ('Connected to remote API server')
