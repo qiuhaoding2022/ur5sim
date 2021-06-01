@@ -11,7 +11,7 @@ import cv2
 from sensor_msgs.msg import Image
 from moveit_msgs.msg import RobotState
 from sensor_msgs.msg import JointState
-from math import pi
+from math import pi,atan2,degrees,radians
 from tf.transformations import quaternion_from_euler
 from cv_bridge import CvBridge, CvBridgeError
 
@@ -115,6 +115,11 @@ def plan_cartesian_path(xscale,yscale,zscale):
     group.set_start_state_to_current_state()
     pose=geometry_msgs.msg.Pose()
     pose=group.get_current_pose().pose
+    quaternion = quaternion_from_euler(0,pi/2, 0)
+    pose.orientation.x = quaternion[0]
+    pose.orientation.y = quaternion[1]
+    pose.orientation.z = quaternion[2]
+    pose.orientation.w = quaternion[3]
     pose.position.x +=xscale*1
     pose.position.y +=yscale*1
     pose.position.z +=zscale*1
@@ -126,28 +131,27 @@ def plan_cartesian_path(xscale,yscale,zscale):
     group.stop
     return plan
 
-##def plan_cartesian_path2(p):
-##    group.clear_pose_targets()
-##    waypoints=[]
-##    quaternion = quaternion_from_euler(p[0],p[1], p[2])
-##    group.set_start_state_to_current_state()
-##    pose=geometry_msgs.msg.Pose()
-##    pose=group.get_current_pose().pose
-##    pose.orientation.x = quaternion[0]
-##    pose.orientation.y = quaternion[1]
-##    pose.orientation.z = quaternion[2]
-##    pose.orientation.w = quaternion[3]
-##    pose.position.x = p[3]
-##    pose.position.y = p[4]
-##    pose.position.z = p[5]
-##    waypoints.append(copy.deepcopy(pose))
-##    (plan, fraction) = group.compute_cartesian_path(
-##                                       waypoints,   # waypoints to follow
-##                                       0.01,        # eef_step
-##                                       0.0)         # jump_threshold
-##    group.stop
-##    return plan
-
+def getTOrientation(cnt):
+  rect=cv2.minAreaRect(cnt)
+  #print (rect)
+  x=rect[0][0]
+  y=rect[0][1]
+  #x=int(cpoint.pt[0])
+  #y=int(cpoint.pt[1])
+  M=cv2.moments(cnt)
+  #print(M)
+  cX = int(M["m10"] / M["m00"])
+  cY = int(M["m01"] / M["m00"])
+  dy=cY-y
+  dx=cX-x
+  angle=atan2(dy,dx)-pi/2
+  return angle
+def getIOrientation(cnt):
+  output=cv2.fitLine(cnt,cv2.DIST_L2,0, 0.01, 0.01)
+  dx=output[0]
+  dy=output[1]
+  angle=atan2(dy,dx)+np.pi/2
+  return angle
 def simt(dt):
     t1=sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
     #secs=sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]-t1
@@ -166,16 +170,28 @@ def suc_pad(action):
                                emptyBuff,
                                sim.simx_opmode_blocking)
     
-def get_blob_relative_position(image, keyPoint):
+def get_relative_position(image, cnt):
     rows = float(image.shape[0])
     cols = float(image.shape[1])
-    # print(rows, cols)
     center_x    = 0.5*cols
     center_y    = 0.5*rows
-    # print(center_x)
-    x = (keyPoint.pt[0] - center_x)/(center_x)
-    y = (keyPoint.pt[1] - center_y)/(center_y)
+    rect=cv2.minAreaRect(cnt)
+    x=rect[0][0]
+    y=rect[0][1]
+    x = (x - center_x)/(center_x)
+    y = (y - center_y)/(center_y)
     return(x,y)
+##def get_blob_relative_position(image, keyPoint):
+##    rows = float(image.shape[0])
+##    cols = float(image.shape[1])
+##    # print(rows, cols)
+##    center_x    = 0.5*cols
+##    center_y    = 0.5*rows
+##    # print(center_x)
+##    x = (keyPoint.pt[0] - center_x)/(center_x)
+##    y = (keyPoint.pt[1] - center_y)/(center_y)
+##    return(x,y)
+
 def conversion(x,y):
     x=(x+0.005208)/2.864583
     y=(y+0.005208)/2.864583
@@ -196,40 +212,45 @@ def main():
         if keypoints==[]:
             print('no object found')
             break
-        (x,y)=get_blob_relative_position(cv_image, keypoints[0])
-        x,y=conversion(x,y)
-        
+
         imgray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         ret, thresh = cv2.threshold(imgray, 127, 255,cv2.THRESH_BINARY_INV)
-        _, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        
+        contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)     
         objectarea=cv2.contourArea(contours[0])
+        #(x,y)=get_blob_relative_position(cv_image, keypoints[0])
+        (x,y)=get_relative_position(cv_image, contours[0])
+        x,y=conversion(x,y)
+        cpoint=cv2.minAreaRect(contours[0])[0]
+        color=cv_image[int(cpoint[1]),int(cpoint[0])]
         print ('Task Start, Starting time is: ')
         print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
-        pickuppos=[0,pi/2,0,-0.6,0,0.07]
+        pickuppos=[0,pi/2,0,-0.6-y,-x,0.07]
         plan=trajgen(pickuppos)
         execute_traj(plan)
         rospy.sleep(2)
-        plan=plan_cartesian_path(-y,-x,0)
-        execute_traj(plan)
-        plan=plan_cartesian_path(0,0,-0.011)
+        plan=plan_cartesian_path(0,0,-0.0105)
         execute_traj(plan)
         suc_pad(1)
-    ##    print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
         simt(rospy.Duration(secs=0.25))
-    ##    print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
         plan=plan_cartesian_path(0,0,0.1)
         execute_traj(plan)
         #rospy.sleep(1)
-        add_ceil()
-        if objectarea > 700:
-            plan=trajgen([-pi/2,pi/2,pi/2,0.4,0.3,0.1])
+        #add_ceil()
+        if color[2]>100:
+            shift=0
         else:
-            plan=trajgen([-pi/2,pi/2,pi/2,0.4,-0.3,0.1])
+            shift=-0.3
+        if objectarea > 700:
+            angleT=getTOrientation(contours[0])
+            print(angleT)
+            plan=trajgen([0,pi/2,angleT,0.4+shift,0.4,0.1])
+        else:
+            angleI=getIOrientation(contours[0])
+            print(angleI)
+            plan=trajgen([0,pi/2,angleI,0.4+shift,-0.4,0.1])
         execute_traj(plan)
         TASK=0
         suc_pad(0)
-
         print ('Task Complete, simulation time is: ')
         print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
 

@@ -6,10 +6,99 @@ import roslib
 import sys
 import rospy
 import cv2
+import cv2 as cv
 import numpy as np
 from std_msgs.msg import String
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
+from math import atan2, cos, sin, sqrt, pi, copysign,log10,degrees
+import time
+##def drawAxis(img, p_, q_, colour, scale):
+##    p = list(p_)
+##    q = list(q_)
+##    
+##    angle = atan2(p[1] - q[1], p[0] - q[0]) # angle in radians
+##    hypotenuse = sqrt((p[1] - q[1]) * (p[1] - q[1]) + (p[0] - q[0]) * (p[0] - q[0]))
+##    # Here we lengthen the arrow by a factor of scale
+##    q[0] = p[0] - scale * hypotenuse * cos(angle)
+##    q[1] = p[1] - scale * hypotenuse * sin(angle)
+##    cv.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv.LINE_AA)
+##    # create the arrow hooks
+##    p[0] = q[0] + 9 * cos(angle + pi / 4)
+##    p[1] = q[1] + 9 * sin(angle + pi / 4)
+##    cv.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv.LINE_AA)
+##    p[0] = q[0] + 9 * cos(angle - pi / 4)
+##    p[1] = q[1] + 9 * sin(angle - pi / 4)
+##    cv.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv.LINE_AA)
+##def getOrientation(pts, img):
+##  ## [pca]
+##  # Construct a buffer used by the pca analysis
+##  sz = len(pts)
+##  data_pts = np.empty((sz, 2), dtype=np.float64)
+##  for i in range(data_pts.shape[0]):
+##    data_pts[i,0] = pts[i,0,0]
+##    data_pts[i,1] = pts[i,0,1]
+## 
+##  # Perform PCA analysis
+##  mean = np.empty((0))
+##  mean, eigenvectors, eigenvalues = cv2.PCACompute2(data_pts, mean)
+## 
+##  # Store the center of the object
+##  cntr = (int(mean[0,0]), int(mean[0,1]))
+##  ## [pca]
+## 
+##  ## [visualization]
+##  # Draw the principal components
+##  cv2.circle(img, cntr, 3, (255, 0, 255), 2)
+##  p1 = (cntr[0] + 0.02 * eigenvectors[0,0] * eigenvalues[0,0], cntr[1] + 0.02 * eigenvectors[0,1] * eigenvalues[0,0])
+##  p2 = (cntr[0] - 0.02 * eigenvectors[1,0] * eigenvalues[1,0], cntr[1] - 0.02 * eigenvectors[1,1] * eigenvalues[1,0])
+##  drawAxis(img, cntr, p1, (255, 255, 0), 1)
+##  drawAxis(img, cntr, p2, (0, 0, 255), 5)
+## 
+##  angle = atan2(eigenvectors[0,1], eigenvectors[0,0]) # orientation in radians
+##  ## [visualization]
+## 
+##  # Label with the rotation angle
+##  label = "  Rotation Angle: " + str(-int(np.rad2deg(angle)) - 90) + " degrees"
+##  print(label)
+##  time.sleep(3)
+##  #textbox = cv2.rectangle(img, (cntr[0], cntr[1]-25), (cntr[0] + 250, cntr[1] + 10), (255,255,255), -1)
+##  #cv2.putText(img, label, (cntr[0], cntr[1]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0,0,0), 1, cv2.LINE_AA)
+## 
+##  return angle
+##def getorientation(img):
+##  moments = cv2.moments(img)
+##  huMoments = cv2.HuMoments(moments)
+##  for i in range(0,7):
+##    huMoments[i] = -1* copysign(1.0, huMoments[i]) * log10(abs(huMoments[i]))
+##  print('')
+##  print(huMoments)
+##  time.sleep(3)
+def getTOrientation(cnt,img):
+  rect=cv2.minAreaRect(cnt)
+  #print (rect)
+  x=int(rect[0][0])
+  y=int(rect[0][1])
+  cv2.circle(img, (int(rect[0][0]), int(rect[0][1])), 2, (255, 0, 0), -1)
+  #x=int(cpoint.pt[0])
+  #y=int(cpoint.pt[1])
+  M=cv2.moments(cnt)
+  #print(M)
+  cX = int(M["m10"] / M["m00"])
+  cY = int(M["m01"] / M["m00"])
+  cv2.circle(img, (cX, cY), 2, (255, 255, 255), -1)
+  dy=cY-y
+  dx=cX-x
+  angle=degrees(atan2(dy,dx))-90
+  cv2.imshow('test',img)
+  cv2.waitKey(0)
+  return angle
+def getIOrientation(cnt):
+  output=cv2.fitLine(cnt,cv2.DIST_L2,0, 0.01, 0.01)
+  dx=output[0]
+  dy=output[1]
+  angle=atan2(dy,dx)+np.pi/2
+  return angle
 
 class image_converter:
   def __init__(self):
@@ -28,40 +117,26 @@ class image_converter:
     params.filterByCircularity = False
     params.filterByConvexity = False
     detector = cv2.SimpleBlobDetector_create(params)
- 
-# Detect blobs.
     keypoints = detector.detect(cv_image)
+    cpoint=keypoints[0]
+    R=cv_image[int(cpoint.pt[1]),int(cpoint.pt[0])]
+    #print(R)
     (x,y)=get_blob_relative_position(cv_image, keypoints[0])
+    #print('blob')
+    #print(x)
+    #print(y)
     imgray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
     ret, thresh = cv2.threshold(imgray, 127, 255,cv2.THRESH_BINARY_INV)
-    _, contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    a=cv2.contourArea(contours[0])
-    b=cv2.contourArea(contours[1])
-    c=cv2.contourArea(contours[2])
-    im_with_contour=cv2.drawContours(cv_image, contours, -1, (0,255,0), 3)
-    cv2.imshow("Keypoints", im_with_contour)
-    print(a)
-    print(b)
-    print(c)
-    rospy.sleep(1)
-    (x,y)=get_blob_relative_position(cv_image, keypoints[0])
-    print('blob1')
-    print(x)
-    print(y)
-    (x,y)=get_blob_relative_position(cv_image, keypoints[1])
-    print('blob2')
-    print(x)
-    print(y)
-    (x,y)=get_blob_relative_position(cv_image, keypoints[2])
-    print('blob2')
-    print(x)
-    print(y)
-
-
-    #im_with_keypoints = cv2.drawKeypoints(cv_image, keypoints, np.array([]), (0, 0, 255),  cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS) 
-# Show blobs
-    cv2.waitKey(0)
-
+    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    #angle=getTOrientation(contours[0],cv_image)
+    
+    #print(angle)
+    cpoint=cv2.minAreaRect(contours[0])[0]
+    color=cv_image[int(cpoint[1]),int(cpoint[0])]
+    print(color)
+    time.sleep(2)
+    #cv2.imshow('test',cv_image)
+    #cv2.waitKey(0)
     try:
       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "rgb8"))
     except CvBridgeError as e:
