@@ -202,18 +202,21 @@ def main():
     global TASK
     ic = image_converter()
     scene.remove_world_object("ceil")
-    print('Wait for image to come up')
+    print('Waiting for image to come up')
     while TASK!=1:
         rospy.sleep(1)
-    print('Image found')   
+    print('Image found')
+    input("Press Enter to continue...")
     while TASK==1:
-        print('New TASK has found')
+        print('New TASK found')
         ######## Image Processing
         keypoints = detector.detect(cv_image)
-        if keypoints==[]:
-            print('no object found')
-            break
-
+        printstate=1
+        while keypoints==[]:
+            time.sleep(0.5)
+            if printstate==1:
+            print('No object found, waiting object to be added')
+            printstate=0
         imgray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         ret, thresh = cv2.threshold(imgray, 127, 255,cv2.THRESH_BINARY_INV)
         _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)     
