@@ -24,6 +24,7 @@
     <arg name="info" value="true"/>
     <arg name="debug" value="$(arg debug)"/>
   </include>
-  <node name="$(anon GenObj_server)" pkg="ur5sim" type="GenObj_server.py" output="screen" />
-  <node name="$(anon SimRestart_server)" pkg="ur5sim" type="SimRestart_server.py" output="screen" />
+
+  <node name="$(anon GenObj_server)" pkg="ur5sim" type="GenObj_server.py" output="screen"/>
+  <node name="$(anon SimRestart_server)" pkg="ur5sim" type="SimRestart_server.py" output="screen"/>
 </launch>

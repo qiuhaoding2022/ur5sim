@@ -14,8 +14,8 @@ from sensor_msgs.msg import JointState
 from math import pi,atan2,degrees,radians
 from tf.transformations import quaternion_from_euler
 from cv_bridge import CvBridge, CvBridgeError
-print "OpenCV version:", cv2.__version__
-print '============ CoppeliaSim setup'
+print ("OpenCV version:", cv2.__version__)
+print ('============ CoppeliaSim setup')
 #sim.simxFinish(-1) 
 clientID=sim.simxStart('127.0.0.1',20005,True,True,5000,5)
 if clientID!=-1:
@@ -23,10 +23,10 @@ if clientID!=-1:
 jointhandles={}
 for i in range (0,6):
     er,jointhandles[i]=sim.simxGetObjectHandle(clientID,('UR5_joint'+str(i+1)),sim.simx_opmode_blocking)
-#sim.simxSynchronous(clientID,True)
 
 
-print "============ Starting Moveit setup"
+
+print ("============ Starting Moveit setup")
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('UR5controller', anonymous=True)
 robot = moveit_commander.RobotCommander()
@@ -41,16 +41,15 @@ box_pose.header.frame_id = "world"
 box_pose.pose.orientation.w = 1.0
 box_pose.pose.position.y=0
 box_pose.pose.position.x=0
-box_pose.pose.position.z = -0.5 # slightly above the end effector
+box_pose.pose.position.z = -0.5 
 box_name = "ground"
 scene.add_box(box_name, box_pose, size=(10, 10, 1))
 
-print "============ Opencv setup"
+print ("============ Opencv setup")
 TASK=-1
 cv_image=-1
 class image_converter:
   def __init__(self):
-    #self.image_pub = rospy.Publisher("/objsort/image_topic_2",Image)
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/objsort/image",Image,self.callback)
 
@@ -88,7 +87,7 @@ def add_ceil():
     box_pose.pose.orientation.w = 1.0
     box_pose.pose.position.y=0
     box_pose.pose.position.x=0
-    box_pose.pose.position.z = 0.75 # slightly above the end effector
+    box_pose.pose.position.z = 0.75
     box_name = "ceil"
     scene.add_box(box_name, box_pose, size=(10, 10, 0.1))
     
@@ -133,13 +132,9 @@ def plan_cartesian_path(xscale,yscale,zscale):
 
 def getTOrientation(cnt):
   rect=cv2.minAreaRect(cnt)
-  #print (rect)
   x=rect[0][0]
   y=rect[0][1]
-  #x=int(cpoint.pt[0])
-  #y=int(cpoint.pt[1])
   M=cv2.moments(cnt)
-  #print(M)
   cX = int(M["m10"] / M["m00"])
   cY = int(M["m01"] / M["m00"])
   dy=cY-y
@@ -182,16 +177,6 @@ def get_relative_position(image, cnt):
     x = (x - center_x)/(center_x)
     y = (y - center_y)/(center_y)
     return(x,y)
-##def get_blob_relative_position(image, keyPoint):
-##    rows = float(image.shape[0])
-##    cols = float(image.shape[1])
-##    # print(rows, cols)
-##    center_x    = 0.5*cols
-##    center_y    = 0.5*rows
-##    # print(center_x)
-##    x = (keyPoint.pt[0] - center_x)/(center_x)
-##    y = (keyPoint.pt[1] - center_y)/(center_y)
-##    return(x,y)
 
 def conversion(x,y):
     x=(x+0.005208)/2.864583
@@ -201,32 +186,32 @@ def conversion(x,y):
 def main():
     global TASK
     ic = image_converter()
-    scene.remove_world_object("ceil")
     print('Waiting for image to come up')
     while TASK!=1:
         rospy.sleep(1)
     print('Image found')
-    input("Press Enter to continue...")
+    input("Press anykey to continue")
     while TASK==1:
         print('New TASK found')
+        #scene.remove_world_object("ceil")
         ######## Image Processing
         keypoints = detector.detect(cv_image)
         printstate=1
-        while keypoints==[]:
-            time.sleep(0.5)
-            if printstate==1:
-            print('No object found, waiting object to be added')
-            printstate=0
+        if keypoints==[]:
+            print('No object found, exiting control node')
+            sim.simxFinish(clientID) 
+            break
         imgray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         ret, thresh = cv2.threshold(imgray, 127, 255,cv2.THRESH_BINARY_INV)
-        _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)     
+        _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        ## uncomment following and comment abouve for OpenCV version 4.X +
+        #contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         objectarea=cv2.contourArea(contours[0])
-        #(x,y)=get_blob_relative_position(cv_image, keypoints[0])
         (x,y)=get_relative_position(cv_image, contours[0])
         x,y=conversion(x,y)
         cpoint=cv2.minAreaRect(contours[0])[0]
         color=cv_image[int(cpoint[1]),int(cpoint[0])]
-        print "ask Start, Starting time is: ",sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
+        print ("ask Start, Starting time is: ",sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
         pickuppos=[0,pi/2,0,-0.6-y,-x,0.07]
         plan=trajgen(pickuppos)
         execute_traj(plan)
@@ -254,7 +239,7 @@ def main():
         execute_traj(plan)
         TASK=0
         suc_pad(0)
-        print "Task Complete, simulation time is: ",sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
+        print ("Task Complete, simulation time is: ",sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
         #print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
 
 if __name__ == '__main__':
