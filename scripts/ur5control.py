@@ -190,7 +190,7 @@ def main():
     while TASK!=1:
         rospy.sleep(1)
     print('Image found')
-    input("Press anykey to continue")
+    raw_input("Press anykey to continue")
     while TASK==1:
         print('New TASK found')
         #scene.remove_world_object("ceil")
