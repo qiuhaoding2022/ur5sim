@@ -211,7 +211,7 @@ def main():
         x,y=conversion(x,y)
         cpoint=cv2.minAreaRect(contours[0])[0]
         color=cv_image[int(cpoint[1]),int(cpoint[0])]
-        print ("ask Start, Starting time is: ",sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
+        print 'Task Start, starting time is: ',sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
         pickuppos=[0,pi/2,0,-0.6-y,-x,0.07]
         plan=trajgen(pickuppos)
         execute_traj(plan)
@@ -239,7 +239,7 @@ def main():
         execute_traj(plan)
         TASK=0
         suc_pad(0)
-        print ("Task Complete, simulation time is: ",sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
+        print 'Task Complete, simulation time is: ',sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
         #print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
 
 if __name__ == '__main__':
