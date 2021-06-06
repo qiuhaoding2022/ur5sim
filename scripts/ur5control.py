@@ -9,22 +9,19 @@ import geometry_msgs.msg
 import sim
 import cv2
 from sensor_msgs.msg import Image
-##from moveit_msgs.msg import RobotState
-##from sensor_msgs.msg import JointState
+from quickstartdemo.srv import GenObj
 from math import pi,atan2,degrees,radians
 from tf.transformations import quaternion_from_euler
 from cv_bridge import CvBridge, CvBridgeError
+
 print ("OpenCV version:", cv2.__version__)
 print ('============ CoppeliaSim setup')
-#sim.simxFinish(-1) 
 clientID=sim.simxStart('127.0.0.1',20005,True,True,5000,5)
 if clientID!=-1:
     print ('Connected to remote API server')
 jointhandles={}
 for i in range (0,6):
     er,jointhandles[i]=sim.simxGetObjectHandle(clientID,('UR5_joint'+str(i+1)),sim.simx_opmode_blocking)
-
-
 print ("============ Starting Moveit setup")
 moveit_commander.roscpp_initialize(sys.argv)
 rospy.init_node('UR5controller', anonymous=True)
@@ -34,6 +31,7 @@ group_name="manipulator"
 group = moveit_commander.MoveGroupCommander(group_name)
 scene = moveit_commander.PlanningSceneInterface()
 scene.remove_world_object("ground")
+
 rospy.sleep(2)
 box_pose = geometry_msgs.msg.PoseStamped()
 box_pose.header.frame_id = "world"
@@ -61,11 +59,6 @@ class image_converter:
     except CvBridgeError as e:
       print(e)
       
-params = cv2.SimpleBlobDetector_Params()
-params.minThreshold=0.15
-params.filterByCircularity = False
-params.filterByConvexity = False
-detector = cv2.SimpleBlobDetector_create(params)
       
 def execute_traj(data):
     traj=data.joint_trajectory.points
@@ -80,16 +73,16 @@ def execute_traj(data):
     simt((traj[-1].time_from_start)/1.5)
     print('execution complete')
         
-def add_ceil():
-    rospy.sleep(2)
-    box_pose = geometry_msgs.msg.PoseStamped()
-    box_pose.header.frame_id = "world"
-    box_pose.pose.orientation.w = 1.0
-    box_pose.pose.position.y=0
-    box_pose.pose.position.x=0
-    box_pose.pose.position.z = 0.75
-    box_name = "ceil"
-    scene.add_box(box_name, box_pose, size=(10, 10, 0.1))
+##def add_ceil():
+##    rospy.sleep(2)
+##    box_pose = geometry_msgs.msg.PoseStamped()
+##    box_pose.header.frame_id = "world"
+##    box_pose.pose.orientation.w = 1.0
+##    box_pose.pose.position.y=0
+##    box_pose.pose.position.x=0
+##    box_pose.pose.position.z = 0.75
+##    box_name = "ceil"
+##    scene.add_box(box_name, box_pose, size=(10, 10, 0.1))
     
 def trajgen(p):
     group.clear_pose_targets()
@@ -183,6 +176,14 @@ def conversion(x,y):
     y=(y+0.005208)/2.864583
     return x,y
 
+def getimagecontour(cv_image):
+    imgray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
+    ret, thresh = cv2.threshold(imgray, 127, 255,cv2.THRESH_BINARY_INV)
+    _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    ## uncomment following and comment abouve for OpenCV version 4.X +
+    #contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    return contours
+
 def main():
     global TASK
     ic = image_converter()
@@ -190,28 +191,24 @@ def main():
     while TASK!=1:
         rospy.sleep(1)
     print('Image found')
-    raw_input("Press any key to continue")
+    raw_input("Press enter to continue")
     print(' ')
     while TASK==1:
         print('New TASK updated')
         #scene.remove_world_object("ceil")
         ######## Image Processing
-        keypoints = detector.detect(cv_image)
+        contours=getimagecontour(cv_image)
         printstate=1
-        while keypoints==[]:
+        while contours==[]:
             if printstate==1:
-                print('No object found. Call ros service /GenObj_service ')
+                print('No object found. Calling ros service /GenObj_service ')
+                generateobject = rospy.ServiceProxy('GenObj_service', GenObj)
+                generateobject()
+                generateobject()
                 printstate=0
-            rospy.sleep(0.5)
+            rospy.sleep(1)
             TASK=0
-            keypoints = detector.detect(cv_image)
-            #sim.simxFinish(clientID) 
-            #break
-        imgray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-        ret, thresh = cv2.threshold(imgray, 127, 255,cv2.THRESH_BINARY_INV)
-        _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        ## uncomment following and comment abouve for OpenCV version 4.X +
-        #contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+            contours=getimagecontour(cv_image)
         objectarea=cv2.contourArea(contours[0])
         (x,y)=get_relative_position(cv_image, contours[0])
         x,y=conversion(x,y)
@@ -221,15 +218,13 @@ def main():
         pickuppos=[0,pi/2,0,-0.6-y,-x,0.07]
         plan=trajgen(pickuppos)
         execute_traj(plan)
-        rospy.sleep(2)
+        rospy.sleep(1.0)
         plan=plan_cartesian_path(0,0,-0.0105)
         execute_traj(plan)
         suc_pad(1)
         simt(rospy.Duration(secs=0.25))
         plan=plan_cartesian_path(0,0,0.1)
         execute_traj(plan)
-        #rospy.sleep(1)
-        #add_ceil()
         if color[2]>100:
             shift=0
         else:
@@ -246,9 +241,7 @@ def main():
         TASK=0
         suc_pad(0)
         print 'Task Complete, simulation time is: ',sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
-        #print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
-
-
+    
 
 if __name__ == '__main__':
     try:

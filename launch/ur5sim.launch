@@ -4,6 +4,7 @@
   <arg name="db" default="false" />
   <!-- By default, we are not in debug mode -->
   <arg name="debug" default="false" />
+  <!-- By default, joint limit is activated -->
   <arg name="limited" default="true"/>
 
   <!-- Load the URDF, SRDF and other .yaml configuration files on the param server -->
@@ -26,5 +27,5 @@
   </include>
 <node name="$(anon SimRestart_server)" pkg="ur5sim" type="SimRestart_server.py" output="screen"/>
   <node name="$(anon GenObj_server)" pkg="ur5sim" type="GenObj_server.py" required="true" output="screen"/>
-  <node name="$(anon ur5controller)" pkg="ur5sim" type="ur5control.py" required="true" output="screen"/>
+  <node name="$(anon UR5controller)" pkg="ur5sim" type="ur5control.py" required="true" output="screen"/>
 </launch>
