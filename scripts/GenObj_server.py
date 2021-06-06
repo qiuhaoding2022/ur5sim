@@ -14,7 +14,7 @@ def handle_GenObj(req):
     print("Adding Objection")
     clientID=sim.simxStart('127.0.0.1',20010,True,True,5000,5)
     emptyBuff = bytearray()
-    print(sim.simxCallScriptFunction(clientID,
+    sim.simxCallScriptFunction(clientID,
                                'partsProducer',
                                sim.sim_scripttype_childscript,
                                'generateobject',
@@ -22,7 +22,7 @@ def handle_GenObj(req):
                                [],
                                [],
                                emptyBuff,
-                               sim.simx_opmode_blocking))
+                               sim.simx_opmode_blocking)
     sim.simxFinish(clientID)
     return []
 def GenObj_server():

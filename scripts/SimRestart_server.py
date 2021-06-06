@@ -5,6 +5,7 @@ from __future__ import print_function
 from ur5sim.srv import SimRestart
 import rospy
 import sim
+#sim.simxFinish(-1)
 clientID=sim.simxStart('127.0.0.1',19997,True,True,5000,5)
 def handle_SimRestart(req):
     #clientID=sim.simxStart('127.0.0.1',20008,True,True,5000,5)

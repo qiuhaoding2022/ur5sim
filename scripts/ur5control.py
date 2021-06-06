@@ -9,8 +9,8 @@ import geometry_msgs.msg
 import sim
 import cv2
 from sensor_msgs.msg import Image
-from moveit_msgs.msg import RobotState
-from sensor_msgs.msg import JointState
+##from moveit_msgs.msg import RobotState
+##from sensor_msgs.msg import JointState
 from math import pi,atan2,degrees,radians
 from tf.transformations import quaternion_from_euler
 from cv_bridge import CvBridge, CvBridgeError
@@ -23,7 +23,6 @@ if clientID!=-1:
 jointhandles={}
 for i in range (0,6):
     er,jointhandles[i]=sim.simxGetObjectHandle(clientID,('UR5_joint'+str(i+1)),sim.simx_opmode_blocking)
-
 
 
 print ("============ Starting Moveit setup")
@@ -61,6 +60,7 @@ class image_converter:
             TASK=1
     except CvBridgeError as e:
       print(e)
+      
 params = cv2.SimpleBlobDetector_Params()
 params.minThreshold=0.15
 params.filterByCircularity = False
@@ -135,8 +135,8 @@ def getTOrientation(cnt):
   x=rect[0][0]
   y=rect[0][1]
   M=cv2.moments(cnt)
-  cX = int(M["m10"] / M["m00"])
-  cY = int(M["m01"] / M["m00"])
+  cX = M["m10"] / M["m00"]
+  cY = M["m01"] / M["m00"]
   dy=cY-y
   dx=cX-x
   angle=atan2(dy,dx)-pi/2
@@ -190,17 +190,23 @@ def main():
     while TASK!=1:
         rospy.sleep(1)
     print('Image found')
-    raw_input("Press anykey to continue")
+    raw_input("Press any key to continue")
+    print(' ')
     while TASK==1:
-        print('New TASK found')
+        print('New TASK updated')
         #scene.remove_world_object("ceil")
         ######## Image Processing
         keypoints = detector.detect(cv_image)
         printstate=1
-        if keypoints==[]:
-            print('No object found, exiting control node')
-            sim.simxFinish(clientID) 
-            break
+        while keypoints==[]:
+            if printstate==1:
+                print('No object found. Call ros service /GenObj_service ')
+                printstate=0
+            rospy.sleep(0.5)
+            TASK=0
+            keypoints = detector.detect(cv_image)
+            #sim.simxFinish(clientID) 
+            #break
         imgray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         ret, thresh = cv2.threshold(imgray, 127, 255,cv2.THRESH_BINARY_INV)
         _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -242,9 +248,12 @@ def main():
         print 'Task Complete, simulation time is: ',sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1]
         #print(sim.simxGetFloatSignal(clientID,'mySimulationTime',sim.simx_opmode_blocking)[1])
 
+
+
 if __name__ == '__main__':
     try:
         main()
     except rospy.ROSInterruptException:
         pass
+
 

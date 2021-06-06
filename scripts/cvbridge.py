@@ -121,19 +121,19 @@ class image_converter:
     cpoint=keypoints[0]
     R=cv_image[int(cpoint.pt[1]),int(cpoint.pt[0])]
     #print(R)
-    (x,y)=get_blob_relative_position(cv_image, keypoints[0])
     #print('blob')
     #print(x)
     #print(y)
     imgray = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
     ret, thresh = cv2.threshold(imgray, 127, 255,cv2.THRESH_BINARY_INV)
-    contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    #angle=getTOrientation(contours[0],cv_image)
-    
-    #print(angle)
-    cpoint=cv2.minAreaRect(contours[0])[0]
-    color=cv_image[int(cpoint[1]),int(cpoint[0])]
-    print(color)
+    _,contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    angle=getTOrientation(contours[0])
+    (x,y)=get_relative_position(cv_image, contours[0])
+    print(x,y)
+    print(angle)
+    #cpoint=cv2.minAreaRect(contours[0])[0]
+    #color=cv_image[int(cpoint[1]),int(cpoint[0])]
+    #print(color)
     time.sleep(2)
     #cv2.imshow('test',cv_image)
     #cv2.waitKey(0)
@@ -153,6 +153,31 @@ def get_blob_relative_position(image, keyPoint):
     y = (keyPoint.pt[1] - center_y)/(center_y)
     return(x,y)
   
+def get_relative_position(image, cnt):
+    rows = float(image.shape[0])
+    cols = float(image.shape[1])
+    center_x    = 0.5*cols
+    center_y    = 0.5*rows
+    rect=cv2.minAreaRect(cnt)
+    x=rect[0][0]
+    y=rect[0][1]
+    x = (x - center_x)/(center_x)
+    y = (y - center_y)/(center_y)
+    return(x,y)
+
+
+def getTOrientation(cnt):
+  rect=cv2.minAreaRect(cnt)
+  x=rect[0][0]
+  y=rect[0][1]
+  M=cv2.moments(cnt)
+  cX = (M["m10"] / M["m00"])
+  cY = (M["m01"] / M["m00"])
+  dy=cY-y
+  dx=cX-x
+  angle=atan2(dy,dx)-pi/2
+  return angle
+
 def main(args):
   rospy.init_node('image_converter', anonymous=True)
   ic = image_converter()
