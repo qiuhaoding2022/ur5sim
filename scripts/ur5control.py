@@ -64,13 +64,13 @@ class image_converter:
 def execute_traj(data):     
     traj=data.joint_trajectory.points
     for j in range (1,len(traj)):
-        targetpos=traj[j].positions
-        sim.simxSetJointTargetPosition(clientID,jointhandles[0],targetpos[0]-pi/2,sim.simx_opmode_streaming)
-        sim.simxSetJointTargetPosition(clientID,jointhandles[1],targetpos[1]+pi/2,sim.simx_opmode_streaming)
+        targetpos=traj[j].positions #get joint poision 
+        sim.simxSetJointTargetPosition(clientID,jointhandles[0],targetpos[0]-pi/2,sim.simx_opmode_streaming)    #joint 1,2,4 position is edited so that the configuration in CoppeliaSim is consistant with urdf in universal robot
+        sim.simxSetJointTargetPosition(clientID,jointhandles[1],targetpos[1]+pi/2,sim.simx_opmode_streaming)    
         sim.simxSetJointTargetPosition(clientID,jointhandles[2],targetpos[2],sim.simx_opmode_streaming)
-        sim.simxSetJointTargetPosition(clientID,jointhandles[3],targetpos[3]+pi/2,sim.simx_opmode_streaming)
+        sim.simxSetJointTargetPosition(clientID,jointhandles[3],targetpos[3]+pi/2,sim.simx_opmode_streaming)     
         sim.simxSetJointTargetPosition(clientID,jointhandles[4],targetpos[4],sim.simx_opmode_streaming)
-        sim.simxSetJointTargetPosition(clientID,jointhandles[5],targetpos[5],sim.simx_opmode_oneshot_wait)
+        sim.simxSetJointTargetPosition(clientID,jointhandles[5],targetpos[5],sim.simx_opmode_oneshot_wait)  
     simt((traj[-1].time_from_start)/1.5) #wait some simulation time so that the trajectory can be completed before next executing command is called
     print('execution complete')
 
@@ -109,13 +109,13 @@ def plan_cartesian_path(xscale,yscale,zscale): #input (xscale,yscale,zscale)dist
     waypoints=[] 
     group.set_start_state_to_current_state()
     pose=geometry_msgs.msg.Pose() #empty pose message
-    pose=group.get_current_pose().pose
+    pose=group.get_current_pose().pose  #get current pose and use it as reference
     quaternion = quaternion_from_euler(0,pi/2, 0) #set orientation for picking up object
     pose.orientation.x = quaternion[0]
     pose.orientation.y = quaternion[1]
     pose.orientation.z = quaternion[2]
     pose.orientation.w = quaternion[3]
-    pose.position.x +=xscale*1
+    pose.position.x +=xscale*1 
     pose.position.y +=yscale*1
     pose.position.z +=zscale*1
     waypoints.append(copy.deepcopy(pose)) #add pose to waypoint
@@ -139,7 +139,7 @@ def getTOrientation(cnt):  #Use for calculating reference orientation of T shape
   return angle
 
 def getIOrientation(cnt):   #use countur fitLine feature to get orientation of I shape
-  output=cv2.fitLine(cnt,cv2.DIST_L2,0, 0.01, 0.01)
+  output=cv2.fitLine(cnt,cv2.DIST_L2,0, 0.01, 0.01) # fit a line to a set of points
   dx=output[0]
   dy=output[1]
   angle=atan2(dy,dx)+np.pi/2
