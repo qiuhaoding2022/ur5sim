@@ -9,7 +9,7 @@ import geometry_msgs.msg
 import sim
 import cv2
 from sensor_msgs.msg import Image
-from quickstartdemo.srv import GenObj
+from ur5sim.srv import GenObj
 from math import pi,atan2,degrees,radians
 from tf.transformations import quaternion_from_euler
 from cv_bridge import CvBridge, CvBridgeError
